@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package pos;
+
+option go_package="github.com/Andrewalifb/lpha-pos-system-product-service";
+
+import "google/protobuf/timestamp.proto";
+import "alpha-pos-system-product-service/api/proto/common.proto"; 
+
+// PosInventoryHistory
+message PosInventoryHistory {
+  string inventory_id = 1;
+  string product_id = 2;
+  string store_id = 3;
+  google.protobuf.Timestamp date = 4;
+  int32 quantity = 5;
+  string branch_id = 6;
+  string company_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  string created_by = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  string updated_by = 11;
+}
+
+// Request and Response messages
+message CreatePosInventoryHistoryRequest {
+  PosInventoryHistory pos_inventory_history = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token = 3;
+}
+
+message CreatePosInventoryHistoryResponse {
+  PosInventoryHistory pos_inventory_history = 1;
+}
+
+message ReadPosInventoryHistoryRequest {
+  string inventory_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token = 3;
+}
+
+message ReadPosInventoryHistoryResponse {
+  PosInventoryHistory pos_inventory_history = 1;
+}
+
+message UpdatePosInventoryHistoryRequest {
+  PosInventoryHistory pos_inventory_history = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token = 3;
+}
+
+message UpdatePosInventoryHistoryResponse {
+  PosInventoryHistory pos_inventory_history = 1;
+}
+
+message DeletePosInventoryHistoryRequest {
+  string inventory_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message DeletePosInventoryHistoryResponse {
+  bool success = 1;
+}
+
+message ReadAllPosInventoryHistoriesRequest {
+  int32 limit = 1;
+  int32 page = 2;
+  JWTPayload jwt_payload = 3;
+  string jwt_token = 4;
+}
+
+message ReadAllPosInventoryHistoriesResponse {
+  repeated PosInventoryHistory pos_inventory_histories = 1;
+  int32 limit = 2;
+  int32 page = 3;
+  int32 max_page = 4;
+  int64 count = 5;
+}
+
+// PosInventoryHistoryService
+service PosInventoryHistoryService {
+  rpc CreatePosInventoryHistory(CreatePosInventoryHistoryRequest) returns (CreatePosInventoryHistoryResponse);
+  rpc ReadPosInventoryHistory(ReadPosInventoryHistoryRequest) returns (ReadPosInventoryHistoryResponse);
+  rpc UpdatePosInventoryHistory(UpdatePosInventoryHistoryRequest) returns (UpdatePosInventoryHistoryResponse);
+  rpc DeletePosInventoryHistory(DeletePosInventoryHistoryRequest) returns (DeletePosInventoryHistoryResponse);
+  rpc ReadAllPosInventoryHistories(ReadAllPosInventoryHistoriesRequest) returns (ReadAllPosInventoryHistoriesResponse);
+}

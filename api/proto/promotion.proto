@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package pos;
+
+option go_package = "github.com/Andrewalifb/lpha-pos-system-product-service";
+
+import "google/protobuf/timestamp.proto";
+import "alpha-pos-system-product-service/api/proto/common.proto";
+
+// PosPromotion
+message PosPromotion {
+  string promotion_id = 1;
+  string product_id = 2;
+  string start_date = 3; 
+  string end_date = 4; 
+  bool active = 5;
+  double discount_rate = 6;
+  string store_id = 7;
+  string branch_id = 8;
+  string company_id = 9;
+  google.protobuf.Timestamp created_at = 10;
+  string created_by = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  string updated_by = 13;
+}
+
+// Request and Response messages for Create
+message CreatePosPromotionRequest {
+  PosPromotion pos_promotion = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token = 3;
+}
+
+message CreatePosPromotionResponse {
+  PosPromotion pos_promotion = 1;
+}
+
+// Request and Response messages for Read by Promotion ID
+message ReadPosPromotionRequest {
+  string promotion_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token = 3;
+}
+
+message ReadPosPromotionResponse {
+  PosPromotion pos_promotion = 1;
+}
+
+// Request and Response messages for Update
+message UpdatePosPromotionRequest {
+  PosPromotion pos_promotion = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token = 3;
+}
+
+message UpdatePosPromotionResponse {
+  PosPromotion pos_promotion = 1;
+}
+
+// Request and Response messages for Delete
+message DeletePosPromotionRequest {
+  string promotion_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token = 3;
+}
+
+message DeletePosPromotionResponse {
+  bool success = 1;
+}
+
+// Request and Response messages for Read All with pagination
+message ReadAllPosPromotionsRequest {
+  int32 limit = 1;
+  int32 page = 2;
+  JWTPayload jwt_payload = 3;
+  string jwt_token = 4;
+}
+
+message ReadAllPosPromotionsResponse {
+  repeated PosPromotion pos_promotions = 1;
+  int32 limit = 2;
+  int32 page = 3;
+  int32 max_page = 4;
+  int64 count = 5;
+}
+
+// Request and Response messages for Read by Product ID
+message ReadPosPromotionByProductIdRequest {
+  string product_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token = 3;
+}
+
+message ReadPosPromotionByProductIdResponse {
+  PosPromotion pos_promotion = 1;
+}
+
+// PosPromotionService
+service PosPromotionService {
+  rpc CreatePosPromotion(CreatePosPromotionRequest) returns (CreatePosPromotionResponse);
+  rpc ReadPosPromotion(ReadPosPromotionRequest) returns (ReadPosPromotionResponse);
+  rpc UpdatePosPromotion(UpdatePosPromotionRequest) returns (UpdatePosPromotionResponse);
+  rpc DeletePosPromotion(DeletePosPromotionRequest) returns (DeletePosPromotionResponse);
+  rpc ReadAllPosPromotions(ReadAllPosPromotionsRequest) returns (ReadAllPosPromotionsResponse);
+  rpc ReadPosPromotionByProductId(ReadPosPromotionByProductIdRequest) returns (ReadPosPromotionByProductIdResponse);
+}
