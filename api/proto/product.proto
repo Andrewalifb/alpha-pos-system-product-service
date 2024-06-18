@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package pos;
+
+option go_package="github.com/Andrewalifb/lpha-pos-system-product-service";
+
+import "google/protobuf/timestamp.proto";
+import "alpha-pos-system-product-service/api/proto/common.proto"; 
+
+// PosProduct
+message PosProduct {
+  string product_id = 1;
+  string product_barcode_id = 2;
+  string product_name = 3;
+  double price = 4;
+  double cost_price = 5;
+  string category_id = 6;
+  string sub_category_id = 7;
+  int32 stock_quantity = 8;
+  int32 reorder_level = 9;
+  string supplier_id = 10;
+  string product_description = 11;
+  bool active = 12;
+  string store_id = 13;
+  string branch_id = 14;
+  string company_id = 15;
+  google.protobuf.Timestamp created_at = 16;
+  string created_by = 17;
+  google.protobuf.Timestamp updated_at = 18;
+  string updated_by = 19;
+}
+
+// Request and Response messages
+message CreatePosProductRequest {
+  PosProduct pos_product = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message CreatePosProductResponse {
+  PosProduct pos_product = 1;
+}
+
+message ReadPosProductRequest {
+  string product_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message ReadPosProductResponse {
+  PosProduct pos_product = 1;
+}
+
+message UpdatePosProductRequest {
+  PosProduct pos_product = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message UpdatePosProductResponse {
+  PosProduct pos_product = 1;
+}
+
+message DeletePosProductRequest {
+  string product_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message DeletePosProductResponse {
+  bool success = 1;
+}
+
+message ReadAllPosProductsRequest {
+  int32 limit = 1;
+  int32 page = 2;
+  JWTPayload jwt_payload = 3;
+  string jwt_token = 4;
+}
+
+message ReadAllPosProductsResponse {
+  repeated PosProduct pos_products = 1;
+  int32 limit = 2;
+  int32 page = 3;
+  int32 max_page = 4;
+  int64 count = 5;
+}
+
+// New Request and Response messages for reading a product by barcode ID
+message ReadPosProductByBarcodeRequest {
+  string product_barcode_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message ReadPosProductByBarcodeResponse {
+  PosProduct pos_product = 1;
+}
+
+// PosProductService
+service PosProductService {
+  rpc CreatePosProduct(CreatePosProductRequest) returns (CreatePosProductResponse);
+  rpc ReadPosProduct(ReadPosProductRequest) returns (ReadPosProductResponse);
+  rpc UpdatePosProduct(UpdatePosProductRequest) returns (UpdatePosProductResponse);
+  rpc DeletePosProduct(DeletePosProductRequest) returns (DeletePosProductResponse);
+  rpc ReadAllPosProducts(ReadAllPosProductsRequest) returns (ReadAllPosProductsResponse);
+  rpc ReadPosProductByBarcode(ReadPosProductByBarcodeRequest) returns (ReadPosProductByBarcodeResponse);
+}

@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package pos;
+
+option go_package="github.com/Andrewalifb/lpha-pos-system-product-service";
+
+import "google/protobuf/timestamp.proto";
+import "alpha-pos-system-product-service/api/proto/common.proto"; 
+
+// PosProductCategory
+message PosProductCategory {
+  string category_id = 1;
+  string category_name = 2;
+  string company_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+  string created_by = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  string updated_by = 7;
+}
+
+// Request and Response messages
+message CreatePosProductCategoryRequest {
+  PosProductCategory pos_product_category = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message CreatePosProductCategoryResponse {
+  PosProductCategory pos_product_category = 1;
+}
+
+message ReadPosProductCategoryRequest {
+  string category_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message ReadPosProductCategoryResponse {
+  PosProductCategory pos_product_category = 1;
+}
+
+message UpdatePosProductCategoryRequest {
+  PosProductCategory pos_product_category = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message UpdatePosProductCategoryResponse {
+  PosProductCategory pos_product_category = 1;
+}
+
+message DeletePosProductCategoryRequest {
+  string category_id = 1;
+  JWTPayload jwt_payload = 2;
+  string jwt_token =3;
+}
+
+message DeletePosProductCategoryResponse {
+  bool success = 1;
+}
+
+message ReadAllPosProductCategoriesRequest {
+  int32 limit = 1;
+  int32 page = 2;
+  JWTPayload jwt_payload = 3;
+  string jwt_token = 4;
+}
+
+message ReadAllPosProductCategoriesResponse {
+  repeated PosProductCategory pos_product_categories = 1;
+  int32 limit = 2;
+  int32 page = 3;
+  int32 max_page = 4;
+  int64 count = 5;
+}
+
+// PosProductCategoryService
+service PosProductCategoryService {
+  rpc CreatePosProductCategory(CreatePosProductCategoryRequest) returns (CreatePosProductCategoryResponse);
+  rpc ReadPosProductCategory(ReadPosProductCategoryRequest) returns (ReadPosProductCategoryResponse);
+  rpc UpdatePosProductCategory(UpdatePosProductCategoryRequest) returns (UpdatePosProductCategoryResponse);
+  rpc DeletePosProductCategory(DeletePosProductCategoryRequest) returns (DeletePosProductCategoryResponse);
+  rpc ReadAllPosProductCategories(ReadAllPosProductCategoriesRequest) returns (ReadAllPosProductCategoriesResponse);
+}
