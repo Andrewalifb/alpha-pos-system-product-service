@@ -4,7 +4,7 @@
 // - protoc             v5.26.1
 // source: inventory_history.proto
 
-package lpha_pos_system_product_service
+package alpha_pos_system_product_service
 
 import (
 	context "context"

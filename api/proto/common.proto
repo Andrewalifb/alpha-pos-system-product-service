@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package pos;
 
-option go_package="github.com/Andrewalifb/lpha-pos-system-product-service";
+option go_package="github.com/Andrewalifb/alpha-pos-system-product-service";
 
 // Standard JWT claims
 message StandardClaims {

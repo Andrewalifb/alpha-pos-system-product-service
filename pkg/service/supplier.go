@@ -11,6 +11,7 @@ import (
 	"github.com/Andrewalifb/alpha-pos-system-product-service/entity"
 	"github.com/Andrewalifb/alpha-pos-system-product-service/pkg/repository"
 	"github.com/Andrewalifb/alpha-pos-system-product-service/utils"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/uuid"
@@ -26,12 +27,14 @@ type PosSupplierService interface {
 
 type posSupplierService struct {
 	pb.UnimplementedPosSupplierServiceServer
-	repo repository.PosSupplierRepository
+	repo               repository.PosSupplierRepository
+	CompanyServiceConn *grpc.ClientConn
 }
 
-func NewPosSupplierService(repo repository.PosSupplierRepository) *posSupplierService {
+func NewPosSupplierService(repo repository.PosSupplierRepository, companyServiceConn *grpc.ClientConn) *posSupplierService {
 	return &posSupplierService{
-		repo: repo,
+		repo:               repo,
+		CompanyServiceConn: companyServiceConn,
 	}
 }
 
@@ -40,12 +43,12 @@ func (s *posSupplierService) CreatePosSupplier(ctx context.Context, req *pb.Crea
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to create new supplier")
 	}
 
@@ -68,7 +71,7 @@ func (s *posSupplierService) CreatePosSupplier(ctx context.Context, req *pb.Crea
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 
-	switch loginRole.Data.RoleName {
+	switch loginRole.PosRole.RoleName {
 	case companyRole:
 		entitySupplier.BranchID = utils.ParseUUID(req.PosSupplier.BranchId)
 
@@ -80,7 +83,7 @@ func (s *posSupplierService) CreatePosSupplier(ctx context.Context, req *pb.Crea
 	}
 
 	// Check if Branch ID is correct
-	_, err = utils.GetPosStoreBranch(entitySupplier.BranchID.String(), req.JwtToken)
+	_, err = utils.GetPosStoreBranchById(s.CompanyServiceConn, entitySupplier.BranchID.String(), req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +103,12 @@ func (s *posSupplierService) ReadPosSupplier(ctx context.Context, req *pb.ReadPo
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read promotion")
 	}
 
@@ -118,20 +121,20 @@ func (s *posSupplierService) ReadPosSupplier(ctx context.Context, req *pb.ReadPo
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 	storeRole := os.Getenv("STORE_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posSupplier.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posSupplier.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only retrieve supplier within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posSupplier.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posSupplier.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only retrieve supplier within their branch")
 		}
 	}
 
-	if loginRole.Data.RoleName == storeRole {
-		if !utils.VerifyStoreUserAccess(loginRole.Data.RoleName, posSupplier.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == storeRole {
+		if !utils.VerifyStoreUserAccess(loginRole.PosRole.RoleName, posSupplier.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("store users can only retrieve supplier within their branch")
 		}
 	}
@@ -146,12 +149,12 @@ func (s *posSupplierService) UpdatePosSupplier(ctx context.Context, req *pb.Upda
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to update promotion")
 	}
 
@@ -164,14 +167,14 @@ func (s *posSupplierService) UpdatePosSupplier(ctx context.Context, req *pb.Upda
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posSupplierData.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posSupplierData.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only update promotion within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posSupplierData.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posSupplierData.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only update promotion within their branch")
 		}
 	}
@@ -195,12 +198,12 @@ func (s *posSupplierService) UpdatePosSupplier(ctx context.Context, req *pb.Upda
 	// Set Branch ID from database
 	entitySupplier.BranchID = utils.ParseUUID(posSupplierData.BranchId)
 
-	branchData, err := utils.GetPosStoreBranch(entitySupplier.BranchID.String(), req.JwtToken)
+	branchData, err := utils.GetPosStoreBranchById(s.CompanyServiceConn, entitySupplier.BranchID.String(), req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 	// set branch id base on data
-	entitySupplier.BranchID = utils.ParseUUID(branchData.Data.BranchID)
+	entitySupplier.BranchID = utils.ParseUUID(branchData.PosStoreBranch.BranchId)
 
 	posSupplier, err := s.repo.UpdatePosSupplier(entitySupplier)
 	if err != nil {
@@ -218,12 +221,12 @@ func (s *posSupplierService) DeletePosSupplier(ctx context.Context, req *pb.Dele
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to update promotion")
 	}
 
@@ -236,14 +239,14 @@ func (s *posSupplierService) DeletePosSupplier(ctx context.Context, req *pb.Dele
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posSupplierData.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posSupplierData.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only update promotion within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posSupplierData.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posSupplierData.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only update promotion within their branch")
 		}
 	}
@@ -267,16 +270,16 @@ func (s *posSupplierService) ReadAllPosSuppliers(ctx context.Context, req *pb.Re
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read all promotion")
 	}
 
-	paginationResult, err := s.repo.ReadAllPosSuppliers(pagination, loginRole.Data.RoleName, req.JwtPayload)
+	paginationResult, err := s.repo.ReadAllPosSuppliers(pagination, loginRole.PosRole.RoleName, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
