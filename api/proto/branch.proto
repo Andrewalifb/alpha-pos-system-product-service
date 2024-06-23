@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package pos;
+
+option go_package="github.com/Andrewalifb/alpha-pos-system-product-service";
+
+import "google/protobuf/timestamp.proto";
+import "alpha-pos-system-product-service/api/proto/common.proto";
+
+// PosStoreBranch
+
+message PosStoreBranch {
+  string branch_id = 1;
+  string branch_name = 2;
+  string company_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+  string created_by = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  string updated_by = 7;
+}
+
+
+// Request and Response messages
+message CreatePosStoreBranchRequest {
+  PosStoreBranch pos_store_branch = 1;
+  JWTPayload jwt_payload = 2;
+}
+
+message CreatePosStoreBranchResponse {
+  PosStoreBranch pos_store_branch = 1;
+}
+
+message ReadPosStoreBranchRequest {
+  string branch_id = 1;
+  JWTPayload jwt_payload = 2;
+}
+
+message ReadPosStoreBranchResponse {
+  PosStoreBranch pos_store_branch = 1;
+}
+
+message UpdatePosStoreBranchRequest {
+  PosStoreBranch pos_store_branch = 1;
+  JWTPayload jwt_payload = 2;
+}
+
+message UpdatePosStoreBranchResponse {
+  PosStoreBranch pos_store_branch = 1;
+}
+
+message DeletePosStoreBranchRequest {
+  string branch_id = 1;
+  JWTPayload jwt_payload = 2;
+}
+
+message DeletePosStoreBranchResponse {
+  bool success = 1;
+}
+
+message ReadAllPosStoreBranchesRequest {
+  int32 limit = 1;
+  int32 page = 2;
+  JWTPayload jwt_payload = 3;
+}
+
+message ReadAllPosStoreBranchesResponse {
+  repeated PosStoreBranch pos_store_branches = 1;
+  int32 limit = 2;
+  int32 page = 3;
+  int32 max_page = 4;
+  int64 count = 5;
+}
+
+// PosStoreBranchService
+service PosStoreBranchService {
+  rpc CreatePosStoreBranch(CreatePosStoreBranchRequest) returns (CreatePosStoreBranchResponse);
+  rpc ReadPosStoreBranch(ReadPosStoreBranchRequest) returns (ReadPosStoreBranchResponse);
+  rpc UpdatePosStoreBranch(UpdatePosStoreBranchRequest) returns (UpdatePosStoreBranchResponse);
+  rpc DeletePosStoreBranch(DeletePosStoreBranchRequest) returns (DeletePosStoreBranchResponse);
+  rpc ReadAllPosStoreBranches(ReadAllPosStoreBranchesRequest) returns (ReadAllPosStoreBranchesResponse);
+}

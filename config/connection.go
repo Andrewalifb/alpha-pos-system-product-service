@@ -11,11 +11,17 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Config struct {
 	SQLDB   *gorm.DB
 	RedisDB *redis.Client
+}
+
+type GrpcClientConfig struct {
+	CompanyServiceConn *grpc.ClientConn
 }
 
 func connectPostgres() *gorm.DB {
@@ -61,10 +67,29 @@ func connectRedis() *redis.Client {
 	}
 }
 
+func connectCompanyServiceGRPC() *grpc.ClientConn {
+	companyGrpcServicePort := os.Getenv("COMPANY_GRPC")
+	addr := fmt.Sprintf("localhost:%s", companyGrpcServicePort)
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Println("Failed to connect to Company Service gRPC:", err)
+		return nil
+	} else {
+		fmt.Println("Successfully connected to Company Service gRPC")
+		return conn
+	}
+}
+
 func NewConfig() *Config {
 	return &Config{
 		SQLDB:   connectPostgres(),
 		RedisDB: connectRedis(),
 		// MongoDB: connectMongo(),
+	}
+}
+
+func NewGRPCConfig() *GrpcClientConfig {
+	return &GrpcClientConfig{
+		CompanyServiceConn: connectCompanyServiceGRPC(),
 	}
 }

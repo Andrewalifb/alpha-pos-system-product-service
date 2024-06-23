@@ -14,6 +14,7 @@ import (
 	"github.com/Andrewalifb/alpha-pos-system-product-service/utils"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -28,18 +29,20 @@ type PosProductService interface {
 
 type posProductService struct {
 	pb.UnimplementedPosProductServiceServer
-	productRepo  repository.PosProductRepository
-	supplierRepo repository.PosSupplierRepository
-	categoryRepo repository.PosProductCategoryRepository
-	subCategory  repository.PosProductSubCategoryRepository
+	productRepo        repository.PosProductRepository
+	supplierRepo       repository.PosSupplierRepository
+	categoryRepo       repository.PosProductCategoryRepository
+	subCategory        repository.PosProductSubCategoryRepository
+	CompanyServiceConn *grpc.ClientConn
 }
 
-func NewPosProductService(productRepo repository.PosProductRepository, supplierRepo repository.PosSupplierRepository, categoryRepo repository.PosProductCategoryRepository, subCategory repository.PosProductSubCategoryRepository) *posProductService {
+func NewPosProductService(productRepo repository.PosProductRepository, supplierRepo repository.PosSupplierRepository, categoryRepo repository.PosProductCategoryRepository, subCategory repository.PosProductSubCategoryRepository, companyServiceConn *grpc.ClientConn) *posProductService {
 	return &posProductService{
-		productRepo:  productRepo,
-		supplierRepo: supplierRepo,
-		categoryRepo: categoryRepo,
-		subCategory:  subCategory,
+		productRepo:        productRepo,
+		supplierRepo:       supplierRepo,
+		categoryRepo:       categoryRepo,
+		subCategory:        subCategory,
+		CompanyServiceConn: companyServiceConn,
 	}
 }
 
@@ -48,12 +51,12 @@ func (s *posProductService) CreatePosProduct(ctx context.Context, req *pb.Create
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to create new product")
 	}
 
@@ -90,7 +93,7 @@ func (s *posProductService) CreatePosProduct(ctx context.Context, req *pb.Create
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 
 	// set Branch ID base in login role
-	switch loginRole.Data.RoleName {
+	switch loginRole.PosRole.RoleName {
 	case companyRole:
 		gormProduct.BranchID = utils.ParseUUID(req.PosProduct.BranchId)
 
@@ -134,12 +137,12 @@ func (s *posProductService) ReadPosProduct(ctx context.Context, req *pb.ReadPosP
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read product")
 	}
 
@@ -152,20 +155,20 @@ func (s *posProductService) ReadPosProduct(ctx context.Context, req *pb.ReadPosP
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 	storeRole := os.Getenv("STORE_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posProduct.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posProduct.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only retrieve product within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only retrieve product within their branch")
 		}
 	}
 
-	if loginRole.Data.RoleName == storeRole {
-		if !utils.VerifyStoreUserAccess(loginRole.Data.RoleName, posProduct.StoreId, req.JwtPayload.StoreId) {
+	if loginRole.PosRole.RoleName == storeRole {
+		if !utils.VerifyStoreUserAccess(loginRole.PosRole.RoleName, posProduct.StoreId, req.JwtPayload.StoreId) {
 			return nil, errors.New("store users can only retrieve product within their store")
 		}
 	}
@@ -180,12 +183,12 @@ func (s *posProductService) ReadPosProductByBarcode(ctx context.Context, req *pb
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read product")
 	}
 
@@ -198,20 +201,20 @@ func (s *posProductService) ReadPosProductByBarcode(ctx context.Context, req *pb
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 	storeRole := os.Getenv("STORE_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posProduct.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posProduct.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only retrieve product within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only retrieve product within their branch")
 		}
 	}
 
-	if loginRole.Data.RoleName == storeRole {
-		if !utils.VerifyStoreUserAccess(loginRole.Data.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == storeRole {
+		if !utils.VerifyStoreUserAccess(loginRole.PosRole.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("store users can only retrieve product within their store")
 		}
 	}
@@ -226,12 +229,12 @@ func (s *posProductService) UpdatePosProduct(ctx context.Context, req *pb.Update
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to update product")
 	}
 
@@ -244,14 +247,14 @@ func (s *posProductService) UpdatePosProduct(ctx context.Context, req *pb.Update
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posProduct.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posProduct.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only update product within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only update product within their branch")
 		}
 	}
@@ -299,12 +302,12 @@ func (s *posProductService) DeletePosProduct(ctx context.Context, req *pb.Delete
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to update product")
 	}
 
@@ -317,14 +320,14 @@ func (s *posProductService) DeletePosProduct(ctx context.Context, req *pb.Delete
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posProduct.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posProduct.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only delete product within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posProduct.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only delete product within their branch")
 		}
 	}
@@ -348,16 +351,16 @@ func (s *posProductService) ReadAllPosProducts(ctx context.Context, req *pb.Read
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read all product")
 	}
 
-	paginationResult, err := s.productRepo.ReadAllPosProducts(pagination, loginRole.Data.RoleName, req.JwtPayload)
+	paginationResult, err := s.productRepo.ReadAllPosProducts(pagination, loginRole.PosRole.RoleName, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}

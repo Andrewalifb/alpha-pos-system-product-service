@@ -15,6 +15,7 @@ import (
 	"github.com/Andrewalifb/alpha-pos-system-product-service/utils"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -30,14 +31,16 @@ type PosProductSubCategoryService interface {
 
 type posProductSubCategoryService struct {
 	pb.UnimplementedPosProductSubCategoryServiceServer
-	subCategoryRepo repository.PosProductSubCategoryRepository
-	categoryRepo    repository.PosProductCategoryRepository
+	subCategoryRepo    repository.PosProductSubCategoryRepository
+	categoryRepo       repository.PosProductCategoryRepository
+	CompanyServiceConn *grpc.ClientConn
 }
 
-func NewPosProductSubCategoryService(subCategoryRepo repository.PosProductSubCategoryRepository, categoryRepo repository.PosProductCategoryRepository) *posProductSubCategoryService {
+func NewPosProductSubCategoryService(subCategoryRepo repository.PosProductSubCategoryRepository, categoryRepo repository.PosProductCategoryRepository, companyServiceConn *grpc.ClientConn) *posProductSubCategoryService {
 	return &posProductSubCategoryService{
-		subCategoryRepo: subCategoryRepo,
-		categoryRepo:    categoryRepo,
+		subCategoryRepo:    subCategoryRepo,
+		categoryRepo:       categoryRepo,
+		CompanyServiceConn: companyServiceConn,
 	}
 }
 
@@ -50,12 +53,12 @@ func (s *posProductSubCategoryService) CreatePosProductSubCategory(ctx context.C
 	}
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to create new product sub category")
 	}
 
@@ -102,12 +105,12 @@ func (s *posProductSubCategoryService) ReadPosProductSubCategory(ctx context.Con
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read product sub category")
 	}
 
@@ -120,20 +123,20 @@ func (s *posProductSubCategoryService) ReadPosProductSubCategory(ctx context.Con
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 	storeRole := os.Getenv("STORE_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only retrieve product sub category within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("branch users can only retrieve product sub category within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == storeRole {
-		if !utils.VerifyStoreUserAccess(loginRole.Data.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == storeRole {
+		if !utils.VerifyStoreUserAccess(loginRole.PosRole.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("store users can only retrieve product sub category within their company")
 		}
 	}
@@ -149,12 +152,12 @@ func (s *posProductSubCategoryService) UpdatePosProductSubCategory(ctx context.C
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to update product sub category")
 	}
 
@@ -165,8 +168,8 @@ func (s *posProductSubCategoryService) UpdatePosProductSubCategory(ctx context.C
 
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only update product sub category within their company")
 		}
 	}
@@ -199,12 +202,12 @@ func (s *posProductSubCategoryService) DeletePosProductSubCategory(ctx context.C
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to delete product sub category")
 	}
 
@@ -215,8 +218,8 @@ func (s *posProductSubCategoryService) DeletePosProductSubCategory(ctx context.C
 
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posSubCategory.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only delete product sub category within their company")
 		}
 	}
@@ -241,16 +244,16 @@ func (s *posProductSubCategoryService) ReadAllPosProductSubCategories(ctx contex
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read all product category")
 	}
 
-	paginationResult, err := s.subCategoryRepo.ReadAllPosProductSubCategories(pagination, loginRole.Data.RoleName, req.JwtPayload)
+	paginationResult, err := s.subCategoryRepo.ReadAllPosProductSubCategories(pagination, loginRole.PosRole.RoleName, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}

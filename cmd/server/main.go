@@ -23,6 +23,7 @@ func main() {
 	}
 	// Initialize the database
 	dbConfig := config.NewConfig()
+	grpcConfig := config.NewGRPCConfig()
 
 	// Initialize the repositories
 	productCategoryRepo := repository.NewPosProductCategoryRepository(dbConfig.SQLDB, dbConfig.RedisDB)
@@ -33,12 +34,12 @@ func main() {
 	supplierRepo := repository.NewPosSupplierRepository(dbConfig.SQLDB, dbConfig.RedisDB)
 
 	// Initialize the services
-	productCategorySvc := service.NewPosProductCategoryService(productCategoryRepo)
-	inventoryHistorySvc := service.NewPosInventoryHistoryService(inventoryHistoryRepo, productRepo)
-	productSvc := service.NewPosProductService(productRepo, supplierRepo, productCategoryRepo, productSubCategoryRepo)
-	promotionSvc := service.NewPosPromotionService(promotionRepo)
-	productSubCategorySvc := service.NewPosProductSubCategoryService(productSubCategoryRepo, productCategoryRepo)
-	supplierSvc := service.NewPosSupplierService(supplierRepo)
+	productCategorySvc := service.NewPosProductCategoryService(productCategoryRepo, grpcConfig.CompanyServiceConn)
+	inventoryHistorySvc := service.NewPosInventoryHistoryService(inventoryHistoryRepo, productRepo, grpcConfig.CompanyServiceConn)
+	productSvc := service.NewPosProductService(productRepo, supplierRepo, productCategoryRepo, productSubCategoryRepo, grpcConfig.CompanyServiceConn)
+	promotionSvc := service.NewPosPromotionService(promotionRepo, grpcConfig.CompanyServiceConn)
+	productSubCategorySvc := service.NewPosProductSubCategoryService(productSubCategoryRepo, productCategoryRepo, grpcConfig.CompanyServiceConn)
+	supplierSvc := service.NewPosSupplierService(supplierRepo, grpcConfig.CompanyServiceConn)
 
 	// Create a gRPC server
 	s := grpc.NewServer()

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package pos;
+
+option go_package="github.com/Andrewalifb/alpha-pos-system-product-service";
+
+import "google/protobuf/timestamp.proto";
+import "alpha-pos-system-product-service/api/proto/common.proto";
+
+// PosRole
+message PosRole {
+  string role_id = 1;
+  string role_name = 2;
+  google.protobuf.Timestamp created_at = 3;
+  string created_by = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  string updated_by = 6;
+}
+
+// Request and Response messages
+message CreatePosRoleRequest {
+  PosRole pos_role = 1;
+  JWTPayload jwt_payload = 2;
+}
+
+message CreatePosRoleResponse {
+  PosRole pos_role = 1;
+}
+
+message ReadPosRoleRequest {
+  string role_id = 1;
+  JWTPayload jwt_payload = 2;
+}
+
+message ReadPosRoleResponse {
+  PosRole pos_role = 1;
+}
+
+message UpdatePosRoleRequest {
+  PosRole pos_role = 1;
+  JWTPayload jwt_payload = 2;
+}
+
+message UpdatePosRoleResponse {
+  PosRole pos_role = 1;
+}
+
+message DeletePosRoleRequest {
+  string role_id = 1;
+  JWTPayload jwt_payload = 2;
+}
+
+message DeletePosRoleResponse {
+  bool success = 1;
+}
+
+message ReadAllPosRolesRequest {
+  int32 limit = 1;
+  int32 page = 2;
+  JWTPayload jwt_payload = 3;
+}
+
+message ReadAllPosRolesResponse {
+  repeated PosRole pos_roles = 1;
+  int32 limit = 2;
+  int32 page = 3;
+  int32 max_page = 4;
+  int64 count = 5;
+}
+
+// PosRoleService
+service PosRoleService {
+  rpc CreatePosRole(CreatePosRoleRequest) returns (CreatePosRoleResponse);
+  rpc ReadPosRole(ReadPosRoleRequest) returns (ReadPosRoleResponse);
+  rpc UpdatePosRole(UpdatePosRoleRequest) returns (UpdatePosRoleResponse);
+  rpc DeletePosRole(DeletePosRoleRequest) returns (DeletePosRoleResponse);
+  rpc ReadAllPosRoles(ReadAllPosRolesRequest) returns (ReadAllPosRolesResponse);
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/Andrewalifb/alpha-pos-system-product-service/utils"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -27,14 +28,16 @@ type PosInventoryHistoryService interface {
 
 type posInventoryHistoryService struct {
 	pb.UnimplementedPosInventoryHistoryServiceServer
-	repoInventory repository.PosInventoryHistoryRepository
-	repoProduct   repository.PosProductRepository
+	repoInventory      repository.PosInventoryHistoryRepository
+	repoProduct        repository.PosProductRepository
+	CompanyServiceConn *grpc.ClientConn
 }
 
-func NewPosInventoryHistoryService(repoInventory repository.PosInventoryHistoryRepository, repoProduct repository.PosProductRepository) *posInventoryHistoryService {
+func NewPosInventoryHistoryService(repoInventory repository.PosInventoryHistoryRepository, repoProduct repository.PosProductRepository, companyServiceConn *grpc.ClientConn) *posInventoryHistoryService {
 	return &posInventoryHistoryService{
-		repoInventory: repoInventory,
-		repoProduct:   repoProduct,
+		repoInventory:      repoInventory,
+		repoProduct:        repoProduct,
+		CompanyServiceConn: companyServiceConn,
 	}
 }
 
@@ -43,12 +46,12 @@ func (s *posInventoryHistoryService) CreatePosInventoryHistory(ctx context.Conte
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to create new inventory history")
 	}
 
@@ -79,7 +82,7 @@ func (s *posInventoryHistoryService) CreatePosInventoryHistory(ctx context.Conte
 	storeRole := os.Getenv("STORE_USER_ROLE")
 
 	// set Branch ID Store ID base in login role
-	switch loginRole.Data.RoleName {
+	switch loginRole.PosRole.RoleName {
 	case companyRole:
 		gormInventoryHistory.BranchID = utils.ParseUUID(req.PosInventoryHistory.BranchId)
 
@@ -162,12 +165,12 @@ func (s *posInventoryHistoryService) ReadPosInventoryHistory(ctx context.Context
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read inventory history")
 	}
 
@@ -180,20 +183,20 @@ func (s *posInventoryHistoryService) ReadPosInventoryHistory(ctx context.Context
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 	storeRole := os.Getenv("STORE_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posInventoryHistory.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posInventoryHistory.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only retrieve inventory history within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posInventoryHistory.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posInventoryHistory.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only retrieve inventory history within their branch")
 		}
 	}
 
-	if loginRole.Data.RoleName == storeRole {
-		if !utils.VerifyStoreUserAccess(loginRole.Data.RoleName, posInventoryHistory.StoreId, req.JwtPayload.StoreId) {
+	if loginRole.PosRole.RoleName == storeRole {
+		if !utils.VerifyStoreUserAccess(loginRole.PosRole.RoleName, posInventoryHistory.StoreId, req.JwtPayload.StoreId) {
 			return nil, errors.New("store users can only retrieve inventory history within their store")
 		}
 	}
@@ -208,12 +211,12 @@ func (s *posInventoryHistoryService) UpdatePosInventoryHistory(ctx context.Conte
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read inventory history")
 	}
 
@@ -226,14 +229,14 @@ func (s *posInventoryHistoryService) UpdatePosInventoryHistory(ctx context.Conte
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posInventory.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posInventory.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only update inventory history within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posInventory.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posInventory.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only update inventory history within their branch")
 		}
 	}
@@ -294,7 +297,7 @@ func (s *posInventoryHistoryService) UpdatePosInventoryHistory(ctx context.Conte
 		UpdatedBy:          uuid.MustParse(req.JwtPayload.UserId),                             // auto
 	}
 	// set Branch ID base in login role
-	switch loginRole.Data.RoleName {
+	switch loginRole.PosRole.RoleName {
 	case companyRole:
 		// fmt.Println("Product DAta :", getDataProduct.BranchId)
 		updateDataProduct.BranchID = utils.ParseUUID(getDataProduct.BranchId)
@@ -353,12 +356,12 @@ func (s *posInventoryHistoryService) DeletePosInventoryHistory(ctx context.Conte
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read inventory history")
 	}
 
@@ -371,14 +374,14 @@ func (s *posInventoryHistoryService) DeletePosInventoryHistory(ctx context.Conte
 	companyRole := os.Getenv("COMPANY_USER_ROLE")
 	branchRole := os.Getenv("BRANCH_USER_ROLE")
 
-	if loginRole.Data.RoleName == companyRole {
-		if !utils.VerifyCompanyUserAccess(loginRole.Data.RoleName, posInventory.CompanyId, req.JwtPayload.CompanyId) {
+	if loginRole.PosRole.RoleName == companyRole {
+		if !utils.VerifyCompanyUserAccess(loginRole.PosRole.RoleName, posInventory.CompanyId, req.JwtPayload.CompanyId) {
 			return nil, errors.New("company users can only delete inventory history within their company")
 		}
 	}
 
-	if loginRole.Data.RoleName == branchRole {
-		if !utils.VerifyBranchUserAccess(loginRole.Data.RoleName, posInventory.BranchId, req.JwtPayload.BranchId) {
+	if loginRole.PosRole.RoleName == branchRole {
+		if !utils.VerifyBranchUserAccess(loginRole.PosRole.RoleName, posInventory.BranchId, req.JwtPayload.BranchId) {
 			return nil, errors.New("branch users can only delete inventory history within their branch")
 		}
 	}
@@ -454,16 +457,16 @@ func (s *posInventoryHistoryService) ReadAllPosInventoryHistories(ctx context.Co
 	jwtRoleID := req.JwtPayload.Role
 
 	// Get user login role name
-	loginRole, err := utils.GetPosRole(jwtRoleID, req.JwtToken)
+	loginRole, err := utils.GetPosRoleById(s.CompanyServiceConn, jwtRoleID, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.Data.RoleName) {
+	if !utils.IsCompanyOrBranchOrStoreUser(loginRole.PosRole.RoleName) {
 		return nil, errors.New("users are not allowed to read all inventory history")
 	}
 
-	paginationResult, err := s.repoInventory.ReadAllPosInventoryHistories(pagination, loginRole.Data.RoleName, req.JwtPayload)
+	paginationResult, err := s.repoInventory.ReadAllPosInventoryHistories(pagination, loginRole.PosRole.RoleName, req.JwtPayload)
 	if err != nil {
 		return nil, err
 	}
